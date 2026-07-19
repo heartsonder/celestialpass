@@ -1,6 +1,6 @@
 'use client'
 
-import { KeyRound, Lock, ScanLine, Wallet } from 'lucide-react'
+import { Heart, KeyRound, Lock, ScanLine, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -45,6 +45,19 @@ export function Dashboard() {
                 </button>
               ))}
             </nav>
+            <Button
+              variant="ghost"
+              size="lg"
+              render={
+                <a
+                  href="https://nowpayments.io/donation/celestialpass"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <Heart /> Donate
+            </Button>
             <Button variant="outline" size="lg" onClick={lock}>
               <Lock /> Lock
             </Button>
