@@ -10,6 +10,7 @@ import {
   generatePassword,
   type GeneratorOptions,
 } from '@/lib/password-generator'
+import { copyToClipboard } from '@/lib/clipboard'
 
 const DEFAULTS: GeneratorOptions = {
   length: 20,
@@ -58,7 +59,8 @@ export function GeneratorView() {
 
   async function copy() {
     if (!password) return
-    await navigator.clipboard.writeText(password)
+    const ok = await copyToClipboard(password)
+    if (!ok) return
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }

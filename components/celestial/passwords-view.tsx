@@ -22,6 +22,7 @@ import {
   Textarea,
 } from '@/components/celestial/primitives'
 import { generatePassword } from '@/lib/password-generator'
+import { copyToClipboard } from '@/lib/clipboard'
 import type { VaultEntry } from '@/lib/vault-store'
 import { useVault } from '@/components/celestial/vault-provider'
 
@@ -60,7 +61,8 @@ export function PasswordsView() {
   }
 
   async function copyPassword(entry: VaultEntry) {
-    await navigator.clipboard.writeText(entry.password)
+    const ok = await copyToClipboard(entry.password)
+    if (!ok) return
     setCopiedId(entry.id)
     setTimeout(() => setCopiedId(null), 1500)
   }

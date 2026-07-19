@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/celestial/primitives'
 import { emptyVault } from '@/lib/vault-store'
+import { copyToClipboard } from '@/lib/clipboard'
 import { useVault } from '@/components/celestial/vault-provider'
 
 export function CreateVaultFlow({ onBack }: { onBack: () => void }) {
@@ -28,7 +29,8 @@ export function CreateVaultFlow({ onBack }: { onBack: () => void }) {
   const words = useMemo(() => mnemonic.split(' '), [mnemonic])
 
   async function copy() {
-    await navigator.clipboard.writeText(mnemonic)
+    const ok = await copyToClipboard(mnemonic)
+    if (!ok) return
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
