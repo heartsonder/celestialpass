@@ -4,6 +4,7 @@ import { Monitor, Moon, Sun, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/celestial/primitives'
+import { SecuritySettings } from '@/components/celestial/settings-security'
 import { useTheme, type Theme } from '@/components/celestial/use-theme'
 import { useVault } from '@/components/celestial/vault-provider'
 import { cn } from '@/lib/utils'
@@ -62,6 +63,10 @@ export function SettingsView() {
           })}
         </div>
       </Card>
+
+      <div className="mt-3">
+        <SecuritySettings />
+      </div>
 
       <Card className="mt-3 border-destructive/30 p-4">
         <div className="flex flex-col gap-1">
