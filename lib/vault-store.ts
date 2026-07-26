@@ -8,8 +8,11 @@ import {
 
 const STORAGE_KEY = 'celestialpass.vault'
 
+export type VaultItemType = 'login' | 'card' | 'note' | 'identity' | 'file'
+
 export interface VaultEntry {
   id: string
+  type: VaultItemType
   name: string
   username: string
   password: string
