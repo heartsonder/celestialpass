@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart, KeyRound, Lock, ScanLine, Wallet } from 'lucide-react'
+import { Heart, KeyRound, Lock, ScanLine, Settings, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -8,14 +8,16 @@ import { GeneratorView } from '@/components/celestial/generator-view'
 import { LeakView } from '@/components/celestial/leak-view'
 import { Wordmark } from '@/components/celestial/logo'
 import { PasswordsView } from '@/components/celestial/passwords-view'
+import { SettingsView } from '@/components/celestial/settings-view'
 import { useVault } from '@/components/celestial/vault-provider'
 
-type Tab = 'vault' | 'generator' | 'leak'
+type Tab = 'vault' | 'generator' | 'leak' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: typeof Wallet }[] = [
   { id: 'vault', label: 'Vault', icon: Wallet },
   { id: 'generator', label: 'Generator', icon: KeyRound },
   { id: 'leak', label: 'Data leak', icon: ScanLine },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export function Dashboard() {
@@ -88,6 +90,7 @@ export function Dashboard() {
         {tab === 'vault' ? <PasswordsView /> : null}
         {tab === 'generator' ? <GeneratorView /> : null}
         {tab === 'leak' ? <LeakView /> : null}
+        {tab === 'settings' ? <SettingsView /> : null}
       </main>
     </div>
   )

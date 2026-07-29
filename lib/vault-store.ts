@@ -8,8 +8,11 @@ import {
 
 const STORAGE_KEY = 'celestialpass.vault'
 
+export type VaultItemType = 'login' | 'card' | 'note' | 'identity' | 'file'
+
 export interface VaultEntry {
   id: string
+  type: VaultItemType
   name: string
   username: string
   password: string
@@ -18,11 +21,31 @@ export interface VaultEntry {
   updatedAt: number
 }
 
-export interface VaultData {
-  entries: VaultEntry[]
+export interface VaultSettings {
+  // Minutes of inactivity before the vault auto-locks. 0 means never.
+  autoLockMinutes: number
 }
 
-export const emptyVault: VaultData = { entries: [] }
+export const defaultSettings: VaultSettings = { autoLockMinutes: 15 }
+
+export interface VaultData {
+  entries: VaultEntry[]
+  settings: VaultSettings
+}
+
+export const emptyVault: VaultData = {
+  entries: [],
+  settings: { ...defaultSettings },
+}
+
+// Older vaults may not carry a settings object — fill in defaults so the rest
+// of the app can rely on it always being present.
+export function normalizeVault(data: Partial<VaultData> | null): VaultData {
+  return {
+    entries: data?.entries ?? [],
+    settings: { ...defaultSettings, ...(data?.settings ?? {}) },
+  }
+}
 
 export function hasStoredVault(): boolean {
   if (typeof window === 'undefined') return false
@@ -50,8 +73,9 @@ export async function saveVault(
 
 export async function loadVault(mnemonic: string): Promise<VaultData> {
   const payload = readEncryptedVault()
-  if (!payload) return emptyVault
-  return decryptJSON<VaultData>(mnemonic, payload)
+  if (!payload) return { entries: [], settings: { ...defaultSettings } }
+  const decrypted = await decryptJSON<Partial<VaultData>>(mnemonic, payload)
+  return normalizeVault(decrypted)
 }
 
 export function destroyVault(): void {
