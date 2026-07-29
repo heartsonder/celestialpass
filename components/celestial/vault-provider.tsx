@@ -87,13 +87,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('locked')
   const [mnemonic, setMnemonic] = useState<string>('')
   const [data, setData] = useState<VaultData>(emptyVault)
-  // Read any existing device unlock methods synchronously so the locked screen
-  // knows immediately whether to offer quick unlock (no flash of the landing).
-  const [security, setSecurity] = useState<Security>(() =>
-    typeof window === 'undefined'
-      ? NO_SECURITY
-      : { ...getSecuritySnapshot(), biometricSupported: false },
-  )
+  const [security, setSecurity] = useState<Security>(NO_SECURITY)
 
   const mnemonicRef = useRef('')
 
@@ -105,6 +99,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Detect capabilities and any existing device unlock methods on mount.
+  // This runs only on client and sets the actual security state after hydration.
   useEffect(() => {
     let active = true
     isBiometricSupported().then((supported) => {
