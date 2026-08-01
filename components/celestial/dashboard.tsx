@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart, KeyRound, Lock, ScanLine, Settings, Wallet } from 'lucide-react'
+import { Eye, EyeOff, Heart, KeyRound, Lock, ScanLine, Settings, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ import { LeakView } from '@/components/celestial/leak-view'
 import { Wordmark } from '@/components/celestial/logo'
 import { PasswordsView } from '@/components/celestial/passwords-view'
 import { SettingsView } from '@/components/celestial/settings-view'
+import { ViewLock } from '@/components/celestial/view-lock'
 import { useVault } from '@/components/celestial/vault-provider'
 
 type Tab = 'vault' | 'generator' | 'leak' | 'settings'
@@ -21,8 +22,12 @@ const TABS: { id: Tab; label: string; icon: typeof Wallet }[] = [
 ]
 
 export function Dashboard() {
-  const { lock } = useVault()
+  const { lock, viewStatus, hasViewPassword, hideEntries } = useVault()
   const [tab, setTab] = useState<Tab>('vault')
+
+  if (viewStatus === 'hidden') {
+    return <ViewLock />
+  }
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -60,6 +65,11 @@ export function Dashboard() {
             >
               <Heart /> Donate
             </Button>
+            {hasViewPassword && (
+              <Button variant="outline" size="lg" onClick={hideEntries} title="Hide entries behind view password">
+                <EyeOff className="size-4" />
+              </Button>
+            )}
             <Button variant="outline" size="lg" onClick={lock}>
               <Lock /> Lock
             </Button>

@@ -4,6 +4,8 @@ import {
   Check,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   Fingerprint,
   KeyRound,
   Lock,
@@ -378,6 +380,177 @@ function RecoveryCodesSection() {
   )
 }
 
+function ViewPasswordSection() {
+  const { hasViewPassword, setViewPassword, clearViewPassword } = useVault()
+  const [isOpen, setIsOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSetPassword = async () => {
+    setError('')
+    if (!password) {
+      setError('Password cannot be empty')
+      return
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await setViewPassword(password)
+      setPassword('')
+      setConfirm('')
+      setIsOpen(false)
+    } catch {
+      setError('Failed to set view password')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleRemove = async () => {
+    setIsSaving(true)
+    try {
+      await clearViewPassword()
+    } catch {
+      setError('Failed to remove view password')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (!isOpen && !hasViewPassword) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-start justify-between">
+          <SectionHeader
+            icon={Eye}
+            title="View password"
+            description="Protect your vault contents with an additional password."
+          />
+          <Button variant="ghost" size="lg" onClick={() => setIsOpen(true)}>
+            Set up
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
+  if (!isOpen && hasViewPassword) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-start justify-between">
+          <SectionHeader
+            icon={Eye}
+            title="View password"
+            description="Vault contents are protected by a view password."
+          />
+          <div className="flex gap-2">
+            <StatusPill enabled={true} />
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={handleRemove}
+              disabled={isSaving}
+            >
+              Remove
+            </Button>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="mb-4 flex items-start justify-between">
+        <SectionHeader
+          icon={Eye}
+          title="Set view password"
+          description="Enter a password to protect your vault contents."
+        />
+        <Button
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            setIsOpen(false)
+            setPassword('')
+            setConfirm('')
+            setError('')
+          }}
+          disabled={isSaving}
+        >
+          <EyeOff className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label htmlFor="vp-pwd" className="mb-1 block text-xs font-medium">
+            Password
+          </label>
+          <input
+            id="vp-pwd"
+            type="password"
+            placeholder="Enter password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isSaving}
+            className="w-full rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="vp-confirm" className="mb-1 block text-xs font-medium">
+            Confirm password
+          </label>
+          <input
+            id="vp-confirm"
+            type="password"
+            placeholder="Confirm password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            disabled={isSaving}
+            className="w-full rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        <div className="flex gap-2 pt-2">
+          <Button
+            onClick={handleSetPassword}
+            disabled={!password || !confirm || isSaving}
+            className="flex-1"
+          >
+            {isSaving ? 'Setting...' : 'Set password'}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setIsOpen(false)
+              setPassword('')
+              setConfirm('')
+              setError('')
+            }}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export function SecuritySettings() {
   return (
     <div className="flex flex-col gap-3">
@@ -391,6 +564,7 @@ export function SecuritySettings() {
       <MasterPasswordSection />
       <BiometricSection />
       <RecoveryCodesSection />
+      <ViewPasswordSection />
     </div>
   )
 }

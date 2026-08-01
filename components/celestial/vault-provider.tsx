@@ -23,20 +23,25 @@ import {
 import {
   clearQuickUnlock,
   clearRecoveryCodes,
+  clearViewPassword,
   disableBiometric,
   enableBiometric,
   generateRecoveryCodes,
   getSecuritySnapshot,
+  hasViewPassword,
   isBiometricSupported,
   removeMasterPassword,
   setMasterPassword,
+  setViewPassword,
   unlockWithBiometric,
   unlockWithMaster,
   unlockWithRecoveryCode,
+  verifyViewPassword,
   type SecuritySnapshot,
 } from '@/lib/device-unlock'
 
 type Status = 'locked' | 'unlocked'
+type ViewStatus = 'hidden' | 'visible'
 
 interface Security extends SecuritySnapshot {
   biometricSupported: boolean
@@ -44,10 +49,12 @@ interface Security extends SecuritySnapshot {
 
 interface VaultContextValue {
   status: Status
+  viewStatus: ViewStatus
   entries: VaultEntry[]
   settings: VaultSettings
   security: Security
   hasQuickUnlock: boolean
+  hasViewPassword: boolean
   // Unlock an existing (or brand-new) vault with a seed phrase.
   unlock: (mnemonic: string, data?: VaultData) => Promise<void>
   lock: () => void
@@ -67,6 +74,11 @@ interface VaultContextValue {
   disableBiometricUnlock: () => void
   createRecoveryCodes: () => Promise<string[]>
   removeRecoveryCodes: () => void
+  // View password (requires vault to be unlocked, controls visibility of entries)
+  setViewPassword: (password: string) => Promise<void>
+  clearViewPassword: () => Promise<void>
+  verifyViewPassword: (password: string) => Promise<boolean>
+  hideEntries: () => void
   // Quick unlock (used from the locked screen, no phrase needed)
   quickUnlockMaster: (password: string) => Promise<void>
   quickUnlockBiometric: () => Promise<void>
@@ -85,6 +97,7 @@ const NO_SECURITY: Security = {
 
 export function VaultProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('locked')
+  const [viewStatus, setViewStatus] = useState<ViewStatus>('visible')
   const [mnemonic, setMnemonic] = useState<string>('')
   const [data, setData] = useState<VaultData>(emptyVault)
   const [security, setSecurity] = useState<Security>(NO_SECURITY)
@@ -301,13 +314,42 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [status, autoLockMinutes, lock])
 
+  // View password management
+  const setViewPasswordHandler = useCallback(async (password: string) => {
+    if (status !== 'unlocked') throw new Error('Vault must be unlocked to set view password')
+    await setViewPassword(password)
+    refreshSecurity()
+  }, [status, refreshSecurity])
+
+  const clearViewPasswordHandler = useCallback(async () => {
+    if (status !== 'unlocked') throw new Error('Vault must be unlocked to clear view password')
+    await clearViewPassword()
+    refreshSecurity()
+  }, [status, refreshSecurity])
+
+  const verifyViewPasswordHandler = useCallback(async (password: string) => {
+    const valid = await verifyViewPassword(password)
+    if (valid) {
+      setViewStatus('visible')
+    }
+    return valid
+  }, [])
+
+  const hideEntriesHandler = useCallback(() => {
+    if (hasViewPassword()) {
+      setViewStatus('hidden')
+    }
+  }, [])
+
   const value = useMemo<VaultContextValue>(
     () => ({
       status,
+      viewStatus,
       entries: data.entries,
       settings: data.settings,
       security,
       hasQuickUnlock: security.hasAny,
+      hasViewPassword: hasViewPassword(),
       unlock,
       lock,
       addEntry,
@@ -321,12 +363,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       disableBiometricUnlock,
       createRecoveryCodes,
       removeRecoveryCodes,
+      setViewPassword: setViewPasswordHandler,
+      clearViewPassword: clearViewPasswordHandler,
+      verifyViewPassword: verifyViewPasswordHandler,
+      hideEntries: hideEntriesHandler,
       quickUnlockMaster,
       quickUnlockBiometric,
       quickUnlockRecovery,
     }),
     [
       status,
+      viewStatus,
       data.entries,
       data.settings,
       security,
@@ -343,6 +390,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       disableBiometricUnlock,
       createRecoveryCodes,
       removeRecoveryCodes,
+      setViewPasswordHandler,
+      clearViewPasswordHandler,
+      verifyViewPasswordHandler,
+      hideEntriesHandler,
       quickUnlockMaster,
       quickUnlockBiometric,
       quickUnlockRecovery,

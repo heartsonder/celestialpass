@@ -33,6 +33,10 @@ interface QuickUnlockData {
   recovery?: RecoveryEntry[]
 }
 
+interface ViewPasswordData {
+  hash: string // PBKDF2 hash of the view password
+}
+
 // ---------------------------------------------------------------- storage ---
 
 function read(): QuickUnlockData {
@@ -272,4 +276,62 @@ async function assertPrf(credentialIdB64: string): Promise<string | null> {
   })) as PublicKeyCredential | null
   if (!assertion) return null
   return extractPrf(assertion)
+}
+
+// ----------------------------------------------------------------- view pw ---
+
+const VIEW_PASSWORD_STORAGE_KEY = 'celestialpass.viewpassword'
+
+function readViewPassword(): ViewPasswordData | null {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(VIEW_PASSWORD_STORAGE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as ViewPasswordData
+  } catch {
+    return null
+  }
+}
+
+function writeViewPassword(data: ViewPasswordData | null): void {
+  if (typeof window === 'undefined') return
+  if (!data) {
+    window.localStorage.removeItem(VIEW_PASSWORD_STORAGE_KEY)
+    return
+  }
+  window.localStorage.setItem(VIEW_PASSWORD_STORAGE_KEY, JSON.stringify(data))
+}
+
+async function hashPassword(password: string): Promise<string> {
+  // Use PBKDF2 with 100k iterations, same as master password
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode('view-salt'), iterations: 100_000, hash: 'SHA-256' },
+    await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']),
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt'],
+  )
+  const exported = await crypto.subtle.exportKey('raw', key)
+  return toBase64(new Uint8Array(exported))
+}
+
+export async function setViewPassword(password: string): Promise<void> {
+  if (!password) throw new Error('View password cannot be empty.')
+  const hash = await hashPassword(password)
+  writeViewPassword({ hash })
+}
+
+export async function clearViewPassword(): Promise<void> {
+  writeViewPassword(null)
+}
+
+export async function verifyViewPassword(password: string): Promise<boolean> {
+  const stored = readViewPassword()
+  if (!stored) return true // No view password set, allow access
+  const hash = await hashPassword(password)
+  return hash === stored.hash
+}
+
+export function hasViewPassword(): boolean {
+  return readViewPassword() !== null
 }
