@@ -19,6 +19,7 @@ export interface VaultEntry {
   url: string
   notes: string
   updatedAt: number
+  itemPassword?: string // Optional password to view this specific item
 }
 
 export interface VaultSettings {

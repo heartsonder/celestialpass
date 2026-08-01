@@ -9,6 +9,7 @@ import {
   File,
   Globe,
   IdCard,
+  Lock,
   Pencil,
   Plus,
   RefreshCw,
@@ -25,6 +26,7 @@ import {
   Input,
   Textarea,
 } from '@/components/celestial/primitives'
+import { ItemUnlockDialog } from '@/components/celestial/item-unlock-dialog'
 import { cn } from '@/lib/utils'
 import { generatePassword } from '@/lib/password-generator'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -32,6 +34,7 @@ import type { VaultEntry, VaultItemType } from '@/lib/vault-store'
 import { useVault } from '@/components/celestial/vault-provider'
 
 type Draft = Omit<VaultEntry, 'id' | 'updatedAt'>
+type EditingEntry = Draft & { itemPassword?: string }
 type Filter = 'all' | VaultItemType
 
 type FieldSpec = {
@@ -120,6 +123,8 @@ export function PasswordsView() {
   const [creating, setCreating] = useState<VaultItemType | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
+  const [unlockingItemId, setUnlockingItemId] = useState<string | null>(null)
+  const [unlockedItems, setUnlockedItems] = useState<Set<string>>(new Set())
 
   const counts = useMemo(() => {
     const map: Record<Filter, number> = {
@@ -146,6 +151,15 @@ export function PasswordsView() {
   }, [entries, query, filter])
 
   function toggleReveal(id: string) {
+    const entry = entries.find((e) => e.id === id)
+    if (!entry) return
+
+    // If item is locked and not unlocked yet, prompt for unlock
+    if (entry.itemPassword && !unlockedItems.has(id)) {
+      setUnlockingItemId(id)
+      return
+    }
+
     setRevealed((prev) => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
@@ -153,7 +167,28 @@ export function PasswordsView() {
     })
   }
 
+  function handleItemUnlock(password: string) {
+    const entry = entries.find((e) => e.id === unlockingItemId)
+    if (!entry || !entry.itemPassword) {
+      setUnlockingItemId(null)
+      return
+    }
+
+    // Simple password check (compare directly)
+    if (password === entry.itemPassword) {
+      setUnlockedItems((prev) => new Set(prev).add(unlockingItemId!))
+      setRevealed((prev) => new Set(prev).add(unlockingItemId!))
+      setUnlockingItemId(null)
+    }
+  }
+
   async function copySecret(entry: VaultEntry) {
+    // Check if item needs unlocking before revealing
+    if (entry.itemPassword && !unlockedItems.has(entry.id)) {
+      setUnlockingItemId(entry.id)
+      return
+    }
+
     const ok = await copyToClipboard(entry.password)
     if (!ok) return
     setCopiedId(entry.id)
@@ -242,6 +277,7 @@ export function PasswordsView() {
             const Icon = config.icon
             const isRevealed = revealed.has(entry.id)
             const hasSecret = Boolean(entry.password)
+            const isLocked = entry.itemPassword && !unlockedItems.has(entry.id)
             const secondary =
               entry.username ||
               (type === 'note' ? entry.notes : entry.url) ||
@@ -254,9 +290,14 @@ export function PasswordsView() {
                       <Icon className="size-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {entry.name || 'Untitled'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium">
+                          {entry.name || 'Untitled'}
+                        </p>
+                        {isLocked && (
+                          <Lock className="size-3.5 shrink-0 text-amber-600" />
+                        )}
+                      </div>
                       <p className="truncate text-sm text-muted-foreground">
                         {secondary}
                       </p>
@@ -319,6 +360,17 @@ export function PasswordsView() {
         </ul>
       )}
 
+      {unlockingItemId && (
+        <ItemUnlockDialog
+          itemName={
+            entries.find((e) => e.id === unlockingItemId)?.name ||
+            'This item'
+          }
+          onUnlock={handleItemUnlock}
+          onCancel={() => setUnlockingItemId(null)}
+        />
+      )}
+
       {(creating || editing) && (
         <EntryDialog
           initial={editing ?? emptyDraft(creating ?? 'login')}
@@ -350,15 +402,17 @@ function EntryDialog({
   onClose: () => void
   onSave: (draft: Draft) => Promise<void>
 }) {
-  const [draft, setDraft] = useState<Draft>({
+  const [draft, setDraft] = useState<EditingEntry>({
     type: initial.type,
     name: initial.name,
     username: initial.username,
     password: initial.password,
     url: initial.url,
     notes: initial.notes,
+    itemPassword: (initial as EditingEntry).itemPassword,
   })
   const [reveal, setReveal] = useState(false)
+  const [revealItemPwd, setRevealItemPwd] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const config = CATEGORIES[draft.type]
@@ -369,7 +423,8 @@ function EntryDialog({
 
   async function save() {
     setSaving(true)
-    await onSave(draft)
+    // itemPassword is optional and will be included in the draft
+    await onSave(draft as any)
   }
 
   return (
@@ -510,6 +565,39 @@ function EntryDialog({
                 value={draft.notes}
                 onChange={(e) => set('notes', e.target.value)}
               />
+            </Field>
+
+            <Field label="Item Password (Optional)" htmlFor="e-item-pwd">
+              <div className="relative">
+                <input
+                  id="e-item-pwd"
+                  type={revealItemPwd ? 'text' : 'password'}
+                  placeholder="Add password to protect this item"
+                  value={draft.itemPassword ?? ''}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      itemPassword: e.target.value || undefined,
+                    }))
+                  }
+                  autoComplete="off"
+                  className="w-full rounded border border-border bg-secondary px-3 py-2 pr-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {draft.itemPassword && (
+                  <button
+                    type="button"
+                    onClick={() => setRevealItemPwd(!revealItemPwd)}
+                    aria-label={revealItemPwd ? 'Hide' : 'Show'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {revealItemPwd ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </button>
+                )}
+              </div>
             </Field>
           </div>
 
