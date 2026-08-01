@@ -6,7 +6,7 @@
 // (re-encrypted) under a second factor that lives only on this device:
 //   - a master password (PBKDF2 + AES-GCM, same primitives as the vault)
 //   - single-use recovery codes
-//   - a platform biometric credential (WebAuthn PRF), when supported
+//   - a platform passkey credential (WebAuthn PRF), when supported
 //
 // None of these secrets ever leave the device, and the wrapped phrase is
 // useless without the corresponding factor.
@@ -16,7 +16,7 @@ import { decryptJSON, encryptJSON, type EncryptedPayload } from '@/lib/crypto'
 const STORAGE_KEY = 'celestialpass.quickunlock'
 const enc = new TextEncoder()
 
-interface BiometricWrap {
+interface PasskeyWrap {
   credentialId: string // base64url
   prfSalt: string // base64, PRF eval input
   payload: EncryptedPayload // phrase encrypted with the PRF-derived secret
@@ -29,7 +29,7 @@ interface RecoveryEntry {
 
 interface QuickUnlockData {
   master?: EncryptedPayload
-  biometric?: BiometricWrap
+  passkey?: PasskeyWrap
   recovery?: RecoveryEntry[]
 }
 
@@ -52,7 +52,7 @@ function read(): QuickUnlockData {
 
 function write(data: QuickUnlockData): void {
   if (typeof window === 'undefined') return
-  const isEmpty = !data.master && !data.biometric && !data.recovery?.length
+  const isEmpty = !data.master && !data.passkey && !data.recovery?.length
   if (isEmpty) {
     window.localStorage.removeItem(STORAGE_KEY)
     return
@@ -67,7 +67,7 @@ export function clearQuickUnlock(): void {
 
 export interface SecuritySnapshot {
   hasMaster: boolean
-  hasBiometric: boolean
+  hasPasskey: boolean
   recoveryRemaining: number
   hasAny: boolean
 }
@@ -76,12 +76,12 @@ export function getSecuritySnapshot(): SecuritySnapshot {
   const data = read()
   const recoveryRemaining = data.recovery?.length ?? 0
   const hasMaster = !!data.master
-  const hasBiometric = !!data.biometric
+  const hasPasskey = !!data.passkey
   return {
     hasMaster,
-    hasBiometric,
+    hasPasskey,
     recoveryRemaining,
-    hasAny: hasMaster || hasBiometric || recoveryRemaining > 0,
+    hasAny: hasMaster || hasPasskey || recoveryRemaining > 0,
   }
 }
 
@@ -174,11 +174,11 @@ export async function unlockWithRecoveryCode(code: string): Promise<string> {
   return mnemonic
 }
 
-// ------------------------------------------------------------ biometrics ---
+// -------------------------------------------------------------- passkeys ---
 
 const PRF_SALT = 'celestialpass.prf.v1'
 
-export async function isBiometricSupported(): Promise<boolean> {
+export async function isPasskeySupported(): Promise<boolean> {
   if (typeof window === 'undefined') return false
   if (!window.PublicKeyCredential) return false
   try {
@@ -194,7 +194,7 @@ function prfEval(): { first: BufferSource } {
 
 // Registers a platform credential and derives a stable secret from the WebAuthn
 // PRF extension, then wraps the recovery phrase under that secret.
-export async function enableBiometric(mnemonic: string): Promise<void> {
+export async function enablePasskey(mnemonic: string): Promise<void> {
   const userId = crypto.getRandomValues(new Uint8Array(16))
   const challenge = crypto.getRandomValues(new Uint8Array(32))
 
@@ -221,7 +221,7 @@ export async function enableBiometric(mnemonic: string): Promise<void> {
     },
   })) as PublicKeyCredential | null
 
-  if (!credential) throw new Error('Biometric setup was cancelled.')
+  if (!credential) throw new Error('Passkey setup was cancelled.')
 
   const credentialId = toBase64(new Uint8Array(credential.rawId))
 
@@ -230,28 +230,28 @@ export async function enableBiometric(mnemonic: string): Promise<void> {
   let secret = extractPrf(credential)
   if (!secret) secret = await assertPrf(credentialId)
   if (!secret) {
-    throw new Error('This device did not return a biometric key (PRF).')
+    throw new Error('This device did not return a passkey (PRF).')
   }
 
   const payload = await encryptJSON(secret, mnemonic)
   write({
     ...read(),
-    biometric: { credentialId, prfSalt: PRF_SALT, payload },
+    passkey: { credentialId, prfSalt: PRF_SALT, payload },
   })
 }
 
-export function disableBiometric(): void {
+export function disablePasskey(): void {
   const data = read()
-  delete data.biometric
+  delete data.passkey
   write(data)
 }
 
-export async function unlockWithBiometric(): Promise<string> {
-  const { biometric } = read()
-  if (!biometric) throw new Error('Biometric unlock is not set up.')
-  const secret = await assertPrf(biometric.credentialId)
-  if (!secret) throw new Error('Biometric authentication failed.')
-  return decryptJSON<string>(secret, biometric.payload)
+export async function unlockWithPasskey(): Promise<string> {
+  const { passkey } = read()
+  if (!passkey) throw new Error('Passkey unlock is not set up.')
+  const secret = await assertPrf(passkey.credentialId)
+  if (!secret) throw new Error('Passkey authentication failed.')
+  return decryptJSON<string>(secret, passkey.payload)
 }
 
 function extractPrf(credential: PublicKeyCredential): string | null {

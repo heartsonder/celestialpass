@@ -24,16 +24,16 @@ import {
   clearQuickUnlock,
   clearRecoveryCodes,
   clearViewPassword,
-  disableBiometric,
-  enableBiometric,
+  disablePasskey,
+  enablePasskey,
   generateRecoveryCodes,
   getSecuritySnapshot,
   hasViewPassword,
-  isBiometricSupported,
+  isPasskeySupported,
   removeMasterPassword,
   setMasterPassword,
   setViewPassword,
-  unlockWithBiometric,
+  unlockWithPasskey,
   unlockWithMaster,
   unlockWithRecoveryCode,
   verifyViewPassword,
@@ -44,7 +44,7 @@ type Status = 'locked' | 'unlocked'
 type ViewStatus = 'hidden' | 'visible'
 
 interface Security extends SecuritySnapshot {
-  biometricSupported: boolean
+  passkeySupported: boolean
 }
 
 interface VaultContextValue {
@@ -70,8 +70,8 @@ interface VaultContextValue {
   // Security management (requires the vault to be unlocked)
   enableMasterPassword: (password: string) => Promise<void>
   disableMasterPassword: () => void
-  enableBiometricUnlock: () => Promise<void>
-  disableBiometricUnlock: () => void
+  enablePasskeyUnlock: () => Promise<void>
+  disablePasskeyUnlock: () => void
   createRecoveryCodes: () => Promise<string[]>
   removeRecoveryCodes: () => void
   // View password (requires vault to be unlocked, controls visibility of entries)
@@ -81,7 +81,7 @@ interface VaultContextValue {
   hideEntries: () => void
   // Quick unlock (used from the locked screen, no phrase needed)
   quickUnlockMaster: (password: string) => Promise<void>
-  quickUnlockBiometric: () => Promise<void>
+  quickUnlockPasskey: () => Promise<void>
   quickUnlockRecovery: (code: string) => Promise<void>
 }
 
@@ -89,10 +89,10 @@ const VaultContext = createContext<VaultContextValue | null>(null)
 
 const NO_SECURITY: Security = {
   hasMaster: false,
-  hasBiometric: false,
+  hasPasskey: false,
+  passkeySupported: false,
   recoveryRemaining: 0,
   hasAny: false,
-  biometricSupported: false,
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -107,7 +107,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const refreshSecurity = useCallback(() => {
     setSecurity((prev) => ({
       ...getSecuritySnapshot(),
-      biometricSupported: prev.biometricSupported,
+      passkeySupported: prev.passkeySupported,
     }))
   }, [])
 
@@ -115,9 +115,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // This runs only on client and sets the actual security state after hydration.
   useEffect(() => {
     let active = true
-    isBiometricSupported().then((supported) => {
+    isPasskeySupported().then((supported) => {
       if (!active) return
-      setSecurity({ ...getSecuritySnapshot(), biometricSupported: supported })
+      setSecurity({ ...getSecuritySnapshot(), passkeySupported: supported })
     })
     return () => {
       active = false
@@ -227,14 +227,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     refreshSecurity()
   }, [refreshSecurity])
 
-  const enableBiometricUnlock = useCallback(async () => {
-    if (!mnemonicRef.current) throw new Error('Vault is locked.')
-    await enableBiometric(mnemonicRef.current)
+  const enablePasskeyUnlock = useCallback(async () => {
+    if (status !== 'unlocked') throw new Error('Vault must be unlocked.')
+    await enablePasskey(mnemonicRef.current)
     refreshSecurity()
-  }, [refreshSecurity])
+  }, [status, refreshSecurity])
 
-  const disableBiometricUnlock = useCallback(() => {
-    disableBiometric()
+  const disablePasskeyUnlock = useCallback(() => {
+    disablePasskey()
     refreshSecurity()
   }, [refreshSecurity])
 
@@ -262,8 +262,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [openVault, refreshSecurity],
   )
 
-  const quickUnlockBiometric = useCallback(async () => {
-    const phrase = await unlockWithBiometric()
+  const quickUnlockPasskey = useCallback(async () => {
+    const phrase = await unlockWithPasskey()
     const loaded = await loadVault(phrase)
     refreshSecurity()
     openVault(phrase, loaded)
@@ -359,8 +359,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setAutoLockMinutes,
       enableMasterPassword,
       disableMasterPassword,
-      enableBiometricUnlock,
-      disableBiometricUnlock,
+      enablePasskeyUnlock,
+      disablePasskeyUnlock,
       createRecoveryCodes,
       removeRecoveryCodes,
       setViewPassword: setViewPasswordHandler,
@@ -368,7 +368,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       verifyViewPassword: verifyViewPasswordHandler,
       hideEntries: hideEntriesHandler,
       quickUnlockMaster,
-      quickUnlockBiometric,
+      quickUnlockPasskey,
       quickUnlockRecovery,
     }),
     [
@@ -386,8 +386,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setAutoLockMinutes,
       enableMasterPassword,
       disableMasterPassword,
-      enableBiometricUnlock,
-      disableBiometricUnlock,
+      enablePasskeyUnlock,
+      disablePasskeyUnlock,
       createRecoveryCodes,
       removeRecoveryCodes,
       setViewPasswordHandler,
@@ -395,7 +395,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       verifyViewPasswordHandler,
       hideEntriesHandler,
       quickUnlockMaster,
-      quickUnlockBiometric,
+      quickUnlockPasskey,
       quickUnlockRecovery,
     ],
   )

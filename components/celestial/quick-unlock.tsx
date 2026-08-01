@@ -15,7 +15,7 @@ export function QuickUnlock({
   const {
     security,
     quickUnlockMaster,
-    quickUnlockBiometric,
+    quickUnlockPasskey,
     quickUnlockRecovery,
   } = useVault()
 
@@ -26,7 +26,7 @@ export function QuickUnlock({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const canBiometric = security.biometricSupported && security.hasBiometric
+  const canPasskey = security.passkeySupported && security.hasPasskey
 
   async function run(fn: () => Promise<void>, fallback: string) {
     setError(null)
@@ -62,7 +62,7 @@ export function QuickUnlock({
         </div>
 
         <Card className="p-4">
-          {canBiometric ? (
+          {canPasskey ? (
             <Button
               className="w-full"
               size="lg"
@@ -70,16 +70,16 @@ export function QuickUnlock({
               disabled={busy}
               onClick={() =>
                 run(
-                  quickUnlockBiometric,
-                  'Biometric authentication failed. Try again.',
+                  quickUnlockPasskey,
+                  'Passkey authentication failed. Try again.',
                 )
               }
             >
-              <Fingerprint /> Unlock with biometrics
+              <Fingerprint /> Unlock with passkey
             </Button>
           ) : null}
 
-          {canBiometric && security.hasMaster ? (
+          {canPasskey && security.hasMaster ? (
             <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground/70">
               <span className="h-px flex-1 bg-border" />
               or
@@ -110,7 +110,7 @@ export function QuickUnlock({
                   id="master"
                   type={reveal ? 'text' : 'password'}
                   value={password}
-                  autoFocus={!canBiometric}
+                  autoFocus={!canPasskey}
                   onChange={(e) => {
                     setError(null)
                     setPassword(e.target.value)

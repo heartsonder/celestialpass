@@ -435,8 +435,8 @@ function EntryDialog({
       aria-label={isEdit ? 'Edit item' : 'Add item'}
       onClick={onClose}
     >
-      <Card className="w-full max-w-md p-5 shadow-2xl">
-        <div onClick={(e) => e.stopPropagation()} className="contents">
+      <Card className="w-full max-w-md max-h-[90vh] flex flex-col p-5 shadow-2xl overflow-hidden">
+        <div onClick={(e) => e.stopPropagation()} className="flex flex-col overflow-hidden">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">
               {isEdit ? `Edit ${config.label.toLowerCase()}` : config.addLabel}
@@ -477,7 +477,7 @@ function EntryDialog({
             </div>
           ) : null}
 
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-4 flex flex-col gap-3 overflow-y-auto">
             <Field label="Name" htmlFor="e-name">
               <Input
                 id="e-name"
@@ -601,7 +601,7 @@ function EntryDialog({
             </Field>
           </div>
 
-          <div className="mt-5 flex justify-end gap-2">
+          <div className="mt-5 flex justify-end gap-2 shrink-0 border-t border-border pt-4">
             <Button variant="ghost" size="lg" onClick={onClose}>
               Cancel
             </Button>

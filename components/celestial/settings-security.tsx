@@ -217,8 +217,8 @@ function MasterPasswordSection() {
   )
 }
 
-function BiometricSection() {
-  const { security, enableBiometricUnlock, disableBiometricUnlock } = useVault()
+function PasskeySection() {
+  const { security, enablePasskeyUnlock, disablePasskeyUnlock } = useVault()
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -226,12 +226,14 @@ function BiometricSection() {
     setError(null)
     setBusy(true)
     try {
-      await enableBiometricUnlock()
-    } catch (e) {
+      await enablePasskeyUnlock()
+      setBusy(false)
+      setError(null)
+    } catch {
       setError(
-        e instanceof Error && e.message
-          ? e.message
-          : 'Could not set up biometrics.',
+        security.hasPasskey
+          ? 'Could not remove passkey.'
+          : 'Could not set up passkey.',
       )
     } finally {
       setBusy(false)
@@ -243,31 +245,32 @@ function BiometricSection() {
       <div className="flex items-start justify-between gap-3">
         <SectionHeader
           icon={Fingerprint}
-          title="Biometric unlock"
-          description="Use your device's fingerprint or face recognition to unlock the vault."
+          title="Passkey unlock"
+          description="Use your device&apos;s passkey to quickly unlock your vault."
         />
-        <StatusPill enabled={security.hasBiometric} />
+        <StatusPill enabled={security.hasPasskey} />
       </div>
-
-      <div className="mt-4">
-        {!security.biometricSupported ? (
-          <p className="text-sm text-muted-foreground">
-            Biometric unlock isn&apos;t available on this device or browser.
+      <div>
+        {!security.passkeySupported ? (
+          <p className="text-xs text-muted-foreground">
+            Passkey unlock isn&apos;t available on this device or browser.
           </p>
-        ) : security.hasBiometric ? (
-          <Button variant="outline" size="lg" onClick={disableBiometricUnlock}>
-            Remove biometric unlock
+        ) : security.hasPasskey ? (
+          <Button variant="outline" size="lg" onClick={disablePasskeyUnlock}>
+            Remove passkey unlock
           </Button>
         ) : (
-          <>
-            <Button variant="outline" size="lg" onClick={enable} disabled={busy}>
-              <Fingerprint /> {busy ? 'Waiting for device…' : 'Enable biometrics'}
-            </Button>
-            {error ? (
-              <p className="mt-2 text-sm text-destructive">{error}</p>
-            ) : null}
-          </>
+          <Button
+            onClick={enable}
+            disabled={busy}
+            className="gap-2"
+          >
+            <Fingerprint /> {busy ? 'Waiting for device…' : 'Enable passkey'}
+          </Button>
         )}
+        {error ? (
+          <p className="mt-2 text-sm text-destructive">{error}</p>
+        ) : null}
       </div>
     </Card>
   )
@@ -562,7 +565,7 @@ export function SecuritySettings() {
       </div>
       <AutoLockSection />
       <MasterPasswordSection />
-      <BiometricSection />
+      <PasskeySection />
       <RecoveryCodesSection />
       <ViewPasswordSection />
     </div>
